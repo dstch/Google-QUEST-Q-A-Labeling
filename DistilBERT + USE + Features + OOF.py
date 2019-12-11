@@ -9,6 +9,21 @@
 @desc:
 """
 
+"""
+note:
+We need to consider the question_user_page and answer_user_page to identify potentially unique users
+
+
+Question Interestingness self and others are very correlated
+Its is also correlated that short answer seeking questions are commonly accepted
+Question is well written and It is interesting to self are correlated
+Ofcourse the option seeking questions are more conversational
+It is surprising to see that fact seeking and opinion seeking questions are strongly inversely correlated . 
+Because I thought Fact+Bias = Opinion
+ 
+"""
+
+
 # !pip install ../input/sacremoses/sacremoses-master/ > /dev/null
 
 import os
@@ -191,26 +206,26 @@ l2_dist = lambda x, y: np.power(x - y, 2).sum(axis=1)
 
 cos_dist = lambda x, y: (x * y).sum(axis=1)
 
-dist_features_train = np.array([
-    l2_dist(embeddings_train['question_title_embedding'], embeddings_train['answer_embedding']),
-    l2_dist(embeddings_train['question_body_embedding'], embeddings_train['answer_embedding']),
-    l2_dist(embeddings_train['question_body_embedding'], embeddings_train['question_title_embedding']),
-    cos_dist(embeddings_train['question_title_embedding'], embeddings_train['answer_embedding']),
-    cos_dist(embeddings_train['question_body_embedding'], embeddings_train['answer_embedding']),
-    cos_dist(embeddings_train['question_body_embedding'], embeddings_train['question_title_embedding'])
-]).T
+# dist_features_train = np.array([
+#     l2_dist(embeddings_train['question_title_embedding'], embeddings_train['answer_embedding']),
+#     l2_dist(embeddings_train['question_body_embedding'], embeddings_train['answer_embedding']),
+#     l2_dist(embeddings_train['question_body_embedding'], embeddings_train['question_title_embedding']),
+#     cos_dist(embeddings_train['question_title_embedding'], embeddings_train['answer_embedding']),
+#     cos_dist(embeddings_train['question_body_embedding'], embeddings_train['answer_embedding']),
+#     cos_dist(embeddings_train['question_body_embedding'], embeddings_train['question_title_embedding'])
+# ]).T
+#
+# dist_features_test = np.array([
+#     l2_dist(embeddings_test['question_title_embedding'], embeddings_test['answer_embedding']),
+#     l2_dist(embeddings_test['question_body_embedding'], embeddings_test['answer_embedding']),
+#     l2_dist(embeddings_test['question_body_embedding'], embeddings_test['question_title_embedding']),
+#     cos_dist(embeddings_test['question_title_embedding'], embeddings_test['answer_embedding']),
+#     cos_dist(embeddings_test['question_body_embedding'], embeddings_test['answer_embedding']),
+#     cos_dist(embeddings_test['question_body_embedding'], embeddings_test['question_title_embedding'])
+# ]).T
 
-dist_features_test = np.array([
-    l2_dist(embeddings_test['question_title_embedding'], embeddings_test['answer_embedding']),
-    l2_dist(embeddings_test['question_body_embedding'], embeddings_test['answer_embedding']),
-    l2_dist(embeddings_test['question_body_embedding'], embeddings_test['question_title_embedding']),
-    cos_dist(embeddings_test['question_title_embedding'], embeddings_test['answer_embedding']),
-    cos_dist(embeddings_test['question_body_embedding'], embeddings_test['answer_embedding']),
-    cos_dist(embeddings_test['question_body_embedding'], embeddings_test['question_title_embedding'])
-]).T
-
-X_train = np.hstack([item for k, item in embeddings_train.items()] + [features_train, dist_features_train])
-X_test = np.hstack([item for k, item in embeddings_test.items()] + [features_test, dist_features_test])
+X_train = np.hstack([item for k, item in embeddings_train.items()] + [features_train])  # , dist_features_train])
+X_test = np.hstack([item for k, item in embeddings_test.items()] + [features_test])  # , dist_features_test])
 y_train = train[targets].values
 
 X_train = np.hstack((X_train, train_question_body_dense, train_answer_dense))
@@ -289,7 +304,7 @@ for ind, (tr, val) in enumerate(kf.split(X_train)):
 
     model = create_model()
     model.fit(
-        X_tr, y_tr, epochs=100, batch_size=32, validation_data=(X_vl, y_vl), verbose=True,
+        X_tr, y_tr, epochs=100, batch_size=256, validation_data=(X_vl, y_vl), verbose=True,
         callbacks=[SpearmanRhoCallback(training_data=(X_tr, y_tr), validation_data=(X_vl, y_vl),
                                        patience=5, model_name=f'best_model_batch{ind}.h5')]
     )
