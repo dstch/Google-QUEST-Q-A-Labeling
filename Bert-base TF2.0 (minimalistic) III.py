@@ -4,10 +4,37 @@
 @author: dstch
 @license: (C) Copyright 2013-2019, Regulus Tech.
 @contact: dstch@163.com
-@file: Bert-base TensorFlow 2.0 2.py
-@time: 2019/12/12 15:42
-@desc:
+@file: Bert-base TF2.0 (minimalistic) III.py
+@time: 2019/12/18 8:57
+@desc: fork from https://www.kaggle.com/khoongweihao/bert-base-tf2-0-minimalistic-iii
 """
+
+
+"""
+Update 1 (Commit 7):
+
+    removing penultimate dense layer; now there's only one dense layer (output layer) for fine-tuning
+    using BERT's sequence_output instead of pooled_output as input for the dense layer
+
+Update 2 (Commit 8):
+
+    adjusting _trim_input() --- now have a q_max_len and a_max_len, instead of 'keeping the ratio the same' while trimming.
+    importantly: now also includes question_title for the input sequence
+
+Update 3 (Commit 9)
+
+A lot of experiments can be made with the title + body + answer sequence. Feel free to look into e.g. 
+(1) inventing new tokens (add it to '../input/path-to-bert-folder/assets/vocab.txt'), 
+(2) keeping [SEP] between title and body but modify _get_segments(), 
+(3) using the [PAD] token, or 
+(4) merging title and body without any kind of separation. 
+In this commit I'm doing (2). I also tried (3) offline, 
+and they both perform better than in commit 8, in terms of validation rho.
+
+
+* Ignoring first [SEP] token in _get_segments()
+"""
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import GroupKFold
@@ -222,7 +249,8 @@ def train_and_predict(model, train_data, valid_data, test_data,
     return custom_callback
 
 
-gkf = GroupKFold(n_splits=5).split(X=df_train.question_body, groups=df_train.question_body)
+gkf = GroupKFold(n_splits=10).split(X=df_train.question_body,
+                                    groups=df_train.question_body)  ############## originaln_splits=5
 
 outputs = compute_output_arrays(df_train, output_categories)
 inputs = compute_input_arays(df_train, input_categories, tokenizer, MAX_SEQUENCE_LENGTH)
@@ -248,7 +276,7 @@ for fold, (train_idx, valid_idx) in enumerate(gkf):
                                     train_data=(train_inputs, train_outputs),
                                     valid_data=(valid_inputs, valid_outputs),
                                     test_data=test_inputs,
-                                    learning_rate=3e-5, epochs=4, batch_size=8,
+                                    learning_rate=3e-5, epochs=5, batch_size=8,
                                     loss_function='binary_crossentropy', fold=fold)
 
         histories.append(history)
