@@ -9,7 +9,6 @@
 @desc: fork from https://www.kaggle.com/khoongweihao/bert-base-tf2-0-minimalistic-iii
 """
 
-
 """
 Update 1 (Commit 7):
 
@@ -51,6 +50,14 @@ from math import floor, ceil
 
 np.set_printoptions(suppress=True)
 
+"""
+
+1. Read data and tokenizer
+
+Read tokenizer and data, as well as defining the maximum sequence length that will be used for the input to 
+Bert (maximum is usually 512 tokens)
+"""
+
 PATH = '../input/google-quest-challenge/'
 BERT_PATH = '../input/bert-base-from-tfhub/bert_en_uncased_L-12_H-768_A-12'
 tokenizer = tokenization.FullTokenizer(BERT_PATH + '/assets/vocab.txt', True)
@@ -66,6 +73,14 @@ output_categories = list(df_train.columns[11:])
 input_categories = list(df_train.columns[[1, 2, 5]])
 print('\noutput categories:\n\t', output_categories)
 print('\ninput categories:\n\t', input_categories)
+
+"""
+
+2. Preprocessing functions
+
+These are some functions that will be used to preprocess the raw text data into useable Bert inputs.
+
+"""
 
 
 def _get_masks(tokens, max_seq_length):
@@ -172,6 +187,24 @@ def compute_output_arrays(df, columns):
     return np.asarray(df[columns])
 
 
+"""
+
+3. Create model
+
+compute_spearmanr() is used to compute the competition metric for the validation set
+
+CustomCallback() is a class which inherits from tf.keras.callbacks.Callback and will compute and append 
+validation score and validation/test predictions respectively, after each epoch.
+
+bert_model() contains the actual architecture that will be used to finetune BERT to our dataset. 
+It's simple, just taking the sequence_output of the bert_layer and pass it to an AveragePooling layer and 
+finally to an output layer of 30 units (30 classes that we have to predict)
+
+train_and_predict() this function will be run to train and obtain predictions
+
+"""
+
+
 def compute_spearmanr(trues, preds):
     rhos = []
     for col_trues, col_pred in zip(trues.T, preds.T):
@@ -256,6 +289,15 @@ outputs = compute_output_arrays(df_train, output_categories)
 inputs = compute_input_arays(df_train, input_categories, tokenizer, MAX_SEQUENCE_LENGTH)
 test_inputs = compute_input_arays(df_test, input_categories, tokenizer, MAX_SEQUENCE_LENGTH)
 
+"""
+
+5. Training, validation and testing
+
+Loops over the folds in gkf and trains each fold for 5 epochs --- with a learning rate of 1e-5 and 
+batch_size of 8. A simple binary crossentropy is used as the objective-/loss-function.
+
+"""
+
 histories = []
 for fold, (train_idx, valid_idx) in enumerate(gkf):
 
@@ -280,6 +322,16 @@ for fold, (train_idx, valid_idx) in enumerate(gkf):
                                     loss_function='binary_crossentropy', fold=fold)
 
         histories.append(history)
+
+"""
+
+6. Process and submit test predictions
+
+First the test predictions are read from the list of lists of histories. 
+Then each test prediction list (in lists) is averaged. Then a mean of the averages is computed to 
+get a single prediction for each data point. Finally, this is saved to submission.csv
+
+"""
 
 test_predictions = [histories[i].test_predictions for i in range(len(histories))]
 test_predictions = [np.average(test_predictions[i], axis=0) for i in range(len(test_predictions))]
